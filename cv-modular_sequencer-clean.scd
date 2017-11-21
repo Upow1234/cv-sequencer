@@ -5,6 +5,9 @@
 //won't be so few with multiple sequences going
 //should loop restart on moving loop offset?
 
+//get all parameters to initalize correctly
+//(
+//a = Environment.make{
 (
 //client side variables
 
@@ -32,11 +35,15 @@
 
 ~grid = MonoM.new("/monome", 0);
 ~arc = Arc.new("/monome", 0);
+~grid64 = MonoM.new("/monome", 0);
 
 ~gridLeds = Array.fill(128, 0);
+~grid64Leds = Array.fill(64, 0);
 
 ~arcSelectionLeft = [0, 0]; //left is holding status (one is held 0 is not) right is selection index
 ~arcSelectionRight = [0, 1];
+~arcLedsSaved = [[4, 0], [7, 0]]; //this is misleading because it's grid leds not arc leds
+
 ~tempo = 120;
 ~clock = TempoClock(~tempo/60);
 //functions for updating variables from ArcParameters
@@ -47,10 +54,11 @@
 	~tempo = i;
 	~clock.tempo = i / 60;
 };
+~initCvSeq = nil;
 //osc functions for grid and arc
-OSCFunc.newMatching( //grid
+OSCFunc.newMatching( //main 128 grid
 	{ arg message, time, addr, recvPort;
-		var semi = [(0.1/12) *11, (0.1/12) * 9, (0.1/12) * 7, (0.1/12) * 4, (0.1/12) * 2, (0.1/12) * 0];
+		var semi = [(0.1/12) *11.4, (0.1/12) * 9.3, (0.1/12) * 7.1, (0.1/12) * 3.9, (0.1/12) * 2.15, (0.1/12) * 0];
 		//var semi = [200, 180, 160, 140, 120, 100];
 		var durations = [0.125, 0.25, 0.375, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 3, 4, 6, 8, 12, 16]; // this should simply be better
 		var octaves = [0.3, 0.2, 0.1, 0, -0.1, -0.2];
@@ -65,6 +73,7 @@ OSCFunc.newMatching( //grid
 			});
 			~updateGridLeds.value;
 		};
+		postln(addr);
 		if(message[2] < 6, { //top six rows
 			switch(~octaveSelectionHeld[0], 0, {
 				//holding note selection to select duration
@@ -202,7 +211,104 @@ OSCFunc.newMatching( //grid
 				});
 			});
 		});
-}, "/monome/grid/key");
+}, "/monome/grid/key", NetAddr("127.0.0.1", 16139));
+OSCFunc.newMatching( //64 grid
+	{ arg message, time, addr, recvPort;
+		//postln(message[1] + "" + message[2] + "" + message[3]);
+		if(message[1] >= 4, { //arc selection columns
+			var selrow = [4, 5, 6, 7];
+			var arcSelLeds = {arg row, col, side; //side = 0 for left encoders, side = 1 for right encoders
+				var clear = {
+					for(0, 7, {arg y;
+						for(selrow[0], selrow[3], {arg x;
+							~grid64Leds[x + (y * 8)] = 0;
+						});
+					});
+				};
+				var leds = {
+					~grid64Leds[~arcLedsSaved[0][0] + (~arcLedsSaved[0][1] * 8)] = 15;
+					~grid64Leds[(~arcLedsSaved[0][0] + 1) + (~arcLedsSaved[0][1] * 8)] = 15;
+					~grid64Leds[~arcLedsSaved[1][0] + (~arcLedsSaved[1][1] * 8)] = 7;
+					~grid64Leds[(~arcLedsSaved[1][0] - 1) + (~arcLedsSaved[1][1] * 8)] = 7;
+					~updateGrid64Leds.value;
+				};
+				switch(side, 0, {
+					~arcLedsSaved[0] = [selrow[row], col];
+					clear.value();
+					leds.value();
+				}, 1, {
+					~arcLedsSaved[1] = [selrow[row], col];
+					clear.value();
+					leds.value();
+				});
+			};
+			var leftenc = {arg row, col;
+				var pairBound = {arg offset; // check to make sure there is a parameter to go to
+					var index = offset + (message[2] * 2);
+					if(index < ~pairs.size, {
+						~arcSelectionLeft[1] = index;
+						postln("arc selection left =" + ~arcSelectionLeft[1]);
+						~updateArcLeds.value(0, ~pairs[~arcSelectionLeft[1]][0].arcLedValue);
+						~updateArcLeds.value(1, ~pairs[~arcSelectionLeft[1]][1].arcLedValue);
+						postln("arc selection left is held");
+						arcSelLeds.value(row, col, 0);
+					});
+				};
+				switch(message[3], 1, {
+					if(~arcSelectionLeft[0] == 0, {
+						~arcSelectionLeft[0] = 1;
+						switch(row, 0, {
+							pairBound.value(0);
+						}, 2, {
+							pairBound.value(1);
+						});
+					});
+				}, 0, {
+					if(~arcSelectionLeft[0] == 1, {
+						~arcSelectionLeft[0] = 0;
+						postln("arc selection left is not held");
+					});
+				});
+			};
+			var rightenc = {arg row, col;
+				var pairBound = {arg offset; // check to make sure there is a parameter to go to
+					var index = offset + (message[2] * 2);
+					if(index < ~pairs.size, {
+						~arcSelectionRight[1] = index;
+						postln("arc selection right =" + ~arcSelectionRight[1]);
+						~updateArcLeds.value(2, ~pairs[~arcSelectionRight[1]][0].arcLedValue);
+						~updateArcLeds.value(3, ~pairs[~arcSelectionRight[1]][1].arcLedValue);
+						postln("arc selection right is held");
+						arcSelLeds.value(row, col, 1);
+					});
+				};
+				switch(message[3], 1, {
+					if(~arcSelectionRight[0] == 0, {
+						~arcSelectionRight[0] = 1;
+						switch(row, 1, {
+							pairBound.value(0);
+						}, 3, {
+							pairBound.value(1);
+						});
+					});
+				}, 0, {
+					if(~arcSelectionRight[0] == 1, {
+						~arcSelectionRight[0] = 0;
+						postln("arc selection right is not held");
+					});
+				});
+			};
+			switch(message[1], selrow[0],{
+				leftenc.value(0, message[2]);
+			}, selrow[1], {
+				rightenc.value(1, message[2]);
+			}, selrow[2], {
+				leftenc.value(2, message[2]);
+			}, selrow[3], {
+				rightenc.value(3, message[2]);
+			});
+		});
+}, "/monome/grid/key", NetAddr("127.0.0.1", 18279));
 
 OSCFunc.newMatching( //arc
 	{ arg message, time, addr, recvPort;
@@ -259,6 +365,9 @@ OSCFunc.newMatching( //arc
 	~grid.levmap(0, 0, tempGridLedsLeft);
 	~grid.levmap(8, 0, tempGridLedsRight);
 };
+~updateGrid64Leds = {
+	~grid64.levmap(0, 0, ~grid64Leds);
+};
 ~updateArcLeds = {arg encoderNumber, ledValue, ledLevel = 15;
 	var encoderTemporaryArray = Array.fill(64, { arg index;
 		if(index <= ledValue, { ledLevel }, { 0 });
@@ -270,6 +379,7 @@ OSCFunc.newMatching( //arc
 s.waitForBoot({
 	~grid.usePort(16139);
 	~arc.usePort(16159);
+	~grid64.usePort(18279);
 
 	s.makeBundle(nil, {
 		~cvSynths = Group.new;
@@ -278,9 +388,11 @@ s.waitForBoot({
 			var envshape = Env([0, 0.2, 0], [attack, release], releaseNode: 1);
 			var envgen = EnvGen.ar(envshape, gate);
 			var pitch = SinOsc.ar(0.2, 0, mul, add);
+			//var pitch2 = SinOsc.ar(0.2, 0, mul, freq);
 
 			Out.ar(0, pitch);
 			Out.ar(1, envgen);
+			//Out.ar(2, pitch * freqScale);
 			Out.ar(2, pitch * freqScale);
 			/* for synthdef
 			var pitch = PulseDPW.ar(add, 0.5, mul, 0);
@@ -292,25 +404,20 @@ s.waitForBoot({
 		//f = Synth("CVout", [\freq, 0, \mul, 0.1]); // for synthdef
 		SynthDef("Delay", {arg delayTime = 1, decayTime = 1, delayLevel = 1;
 			var input = SoundIn.ar(0, 1);
-			var delay = CombC.ar(input, 4, Lag.kr(delayTime, 0.2), decayTime);
+			var delay = CombC.ar(input, 4, Lag.kr(delayTime, 0.2), decayTime, delayLevel);
 			Out.ar(7, input + delay);
 		}).add;
 		s.sync;
 		~delay = Synth("Delay");
 		s.sync;
 		~pairs = [ //changes accessable by the arc
-			[ArcParameter.new("Attack", 0.001, 10, 25, 2, 0.001, ~cvSynths, \attack, 0), ArcParameter.new("Release", 0.001, 10, 25, 2, 0.001, ~cvSynths, \release, 0)], [ArcParameter.new("Sustain Time", 0.001, 0.95, 100, 2, 0.1, ~susFunc, \nothing, -1), ArcParameter.new("Tempo", 10, 600, 5, 2, 160, ~clockFunc, \nothing, -1)],
+			[ArcParameter.new("Attack", 0.001, 10, 25, 2, 0.001, ~cvSynths, \attack, 0), ArcParameter.new("Release", 0.001, 10, 25, 2, 0.001, ~cvSynths, \release, 0)], [ArcParameter.new("Sustain Time", 0.001, 0.95, 100, 2, 0.1, ~susFunc, \nothing, -1), ArcParameter.new("Tempo", 10, 600, 5, 2, ~tempo, ~clockFunc, \nothing, -1)],
 
-			[ArcParameter.new("Delay Time", 0.01, 3, 25, 2, 1, ~delay, \delayTime, 0), ArcParameter.new("Delay Feedback", 0.01, 15, 25, 2, 1, ~delay, \decayTime, 0)], [ArcParameter.new("Delay Level", 0, 1, 25, 2, 1, ~delay, \delayLevel, 0), ArcParameter.new("Cutoff Freq Scale", 0, 1, 100, 2, 1, ~cvSynths, \freqScale, 0)]
+			[ArcParameter.new("Delay Time", 0.01, 3, 50, 2, 1, ~delay, \delayTime, 0), ArcParameter.new("Delay Feedback", 0.01, 15, 50, 2, 1, ~delay, \decayTime, 0)], [ArcParameter.new("Delay Level", 0, 1, 50, 2, 1, ~delay, \delayLevel, 0), ArcParameter.new("Cutoff Freq Scale", 0, 1, 100, 2, 1, ~cvSynths, \freqScale, 0)]
 		];
-		s.sync;
-		~updateArcLeds.value(0, ~pairs[0][0].arcLedValue);
-		~updateArcLeds.value(1, ~pairs[0][1].arcLedValue);
-		~updateArcLeds.value(2, ~pairs[1][0].arcLedValue);
-		~updateArcLeds.value(3, ~pairs[1][1].arcLedValue);
 	});
 
-	t = Task({
+	~cvTask = Task({
 		var time;
 
 		loop{
@@ -318,32 +425,48 @@ s.waitForBoot({
 			~count = (~count + 1) % ~length;
 			position = (~count + ~loopOffset) % 16;
 			time = ~durData[position] / (~tempo/60); //adjusting for synthdef in seconds
-				~cv1.set(\add, (~noteData[position]) + ~octaveData[position], \gate, 1); //needs to have addition for octaves with cv...multiply with synthdef
-				//update location leds
-				~updateGridLeds.value;
-				~clock.sched(time * ~sustainTime,
-					{
-						~cv1.set(\gate, 0);
-				});
-				time.yield;
-			};
+			~cv1.set(\add, (~noteData[position]) + ~octaveData[position], \gate, 1);
+			//update location leds
+			~updateGridLeds.value;
+			~clock.clear; //IF THERE ARE TIMING PROBLEMS GET RID OF THIS!!!
+			~clock.sched(time * ~sustainTime,
+				{
+					~cv1.set(\gate, 0);
+			});
+			time.yield;
+		};
 	});
-	t.play(~clock);
-
-	//initialize loop row leds
-	for(0, 15, {arg x;
-		~gridLeds[x + (5 * 16)] = 15;
-		if((x >= ~loopOffset) && (x < (~loopOffset + ~length)), {
-			~gridLeds[x + (7 * 16)] = 10;
-		}, {
-			~gridLeds[x + (7 * 16)] = 0;
+	~initCvSeq = {
+		~updateArcLeds.value(0, ~pairs[0][0].arcLedValue);
+		~updateArcLeds.value(1, ~pairs[0][1].arcLedValue);
+		~updateArcLeds.value(2, ~pairs[1][0].arcLedValue);
+		~updateArcLeds.value(3, ~pairs[1][1].arcLedValue);
+		~cvTask.play(~clock);
+		//initialize loop row leds
+		for(0, 15, {arg x;
+			~gridLeds[x + (5 * 16)] = 15;
+			if((x >= ~loopOffset) && (x < (~loopOffset + ~length)), {
+				~gridLeds[x + (7 * 16)] = 10;
+			}, {
+				~gridLeds[x + (7 * 16)] = 0;
+			});
 		});
-	});
-	//initialze leds
-	~updateGridLeds.value;
+		//initialze grid leds
+		~updateGridLeds.value;
+	};
+	~initCvSeq.value;
 });
 )
+//};
+//)
+a.push
+a.pop
+a.clear
+//~initCvSeq.value
+~cvTask.stop;
 
+~grid.levall(0)
 t.stop
 f.free
 s.queryAllNodes
+~tempo = 10

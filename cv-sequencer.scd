@@ -151,8 +151,8 @@ a = Environment.make{
 					var attack = 0.05;
 					var release = 0.5;
 					var sustain = ~sustainTime;
-					var ampScale1 = 0.05;
-					var ampScale2 = 1;
+					var ampScale1 = 0.5;
+					var ampScale2 = 0.5;
 
 					//delay parameters
 					var maxDelayTime = 30;
@@ -168,10 +168,10 @@ a = Environment.make{
 					var lfoDepth = 0;
 
 					SynthDef("CVout", {arg mul = 0.1, add = 0.1, gate = 0, attack = 0.001, release = 0.1, freqScale = 1,
-						pitchOut = 0, envOut = 1, freqOut = 2, ampScale = 1;
+						pitchOut = 0, envOut = 1, freqOut = 2, ampScale = 1, pitchOffset;
 						var envshape = Env([0, 1 * ampScale, 0], [attack, release], releaseNode: 1);
 						var envgen = EnvGen.ar(envshape, gate);
-						var pitch = SinOsc.ar(0.2, 0, mul, add);
+						var pitch = SinOsc.ar(0.2, 0, mul, add + pitchOffset);
 						//var pitch2 = SinOsc.ar(0.2, 0, mul, freq);
 
 						Out.ar(pitchOut, pitch);
@@ -189,20 +189,21 @@ a = Environment.make{
 					~cv2 = Synth("CVout", [\pitchOut, 2, \envOut, 3, \freq, 0, \mul, 0, \amp, 1,
 						\attack, attack, \release, release, \ampScale, ampScale2], ~cvSynths);
 					s.sync;
+					/*
 					SynthDef("Delay", {arg in = 0, out = 7, delayTime = 1, decayTime = 1,
-						delayInputLevel = 0, delayOutputLevel = 0, lowShelfFreq = 200, lowShelfAmp = 1;
-						var input = SoundIn.ar(in, 1);
-						var loShelf = BhobLoShelf.ar(input, lowShelfFreq, lowShelfAmp);
-						var filter = DFM1.ar(loShelf * delayInputLevel, 300, 0, type: 1);
-						var delay = CombC.ar(filter, maxDelayTime, Lag.kr(delayTime, 0.2), decayTime, delayOutputLevel);
-						var reverb = FreeVerb.ar(loShelf + delay, 0.5, 0.6, 0.2);
-						Out.ar(out, reverb);
+					delayInputLevel = 0, delayOutputLevel = 0, lowShelfFreq = 200, lowShelfAmp = 1;
+					var input = SoundIn.ar(in, 1);
+					var loShelf = BhobLoShelf.ar(input, lowShelfFreq, lowShelfAmp);
+					var filter = DFM1.ar(loShelf * delayInputLevel, 300, 0, type: 1);
+					var delay = CombC.ar(filter, maxDelayTime, Lag.kr(delayTime, 0.2), decayTime, delayOutputLevel);
+					var reverb = FreeVerb.ar(loShelf + delay, 0.5, 0.6, 0.2);
+					Out.ar(out, reverb);
 					}).add;
 					s.sync;
 
 					~delay = Synth("Delay", [\in, 0, \delayTime, delayTime, \decayTime, decayTime, \delayInputLevel, delayInputLevel, \delayOutputLevel, delayOutputLevel, \lowShelfFreq, lowShelfFreq, \lowShelfAmp, lowShelfAmp]);
 					s.sync;
-					s.sync;
+					*/
 					SynthDef("ExtLFO", {arg lfoSpeed = 0.001, lfoDepth = 0, out;
 						var lfo;
 						lfo = SinOscFB.ar(lfoSpeed, 0, lfoDepth);
@@ -215,15 +216,16 @@ a = Environment.make{
 					s.sync;
 					~pairs = [ //changes accessable by the arc
 						[ArcParameter.new("Attack", 0.001, 10, 25, 2, attack, ~cvSynths, \attack, 0), ArcParameter.new("Release", 0.001, 10, 25, 2, release, ~cvSynths, \release, 0)], [ArcParameter.new("Sustain Time", 0.001, 0.95, 100, 2, sustain, ~susFunc, \nothing, -1), ArcParameter.new("Tempo", 10, 600, 5, 2, ~tempo1, ~clockFunc, \nothing, -1)],
-
+						/*
 						[ArcParameter.new("Delay Time", 0.01, maxDelayTime, 10, 2, delayTime, ~delay, \delayTime, 0), ArcParameter.new("Delay Feedback", 0.01, maxFeedbackTime, 20, 2, decayTime, ~delay, \decayTime, 0)], [ArcParameter.new("Delay Input Level", 0, 1, 100, 2, delayInputLevel, ~delay, \delayInputLevel, 0), ArcParameter.new("Delay Output Level", 0, 1, 100, 2, delayOutputLevel, ~delay, \delayOutputLevel, 0)],
-
+						*/
 						[ArcParameter.new("Lfo One Speed", 0.0001, 50, 25, 2, lfoSpeed, ~lfoOne, \lfoSpeed, 0), ArcParameter.new("Lfo One Depth", 0.0001, 1, 100, 2, lfoDepth, ~lfoOne, \lfoDepth, 0)], [ArcParameter.new("Lfo Two Speed", 0.0001, 50, 25, 2, lfoSpeed, ~lfoTwo, \lfoSpeed, 0), ArcParameter.new("Lfo Two Depth", 0.0001, 1, 100, 2, lfoDepth, ~lfoTwo, \lfoDepth, 0)],
 
-						[ArcParameter.new("Lfo Three Speed", 0.0001, 50, 25, 2, lfoSpeed, ~lfoThree, \lfoSpeed, 0), ArcParameter.new("Lfo Three Depth", 0.0001, 1, 100, 2, lfoDepth, ~lfoThree, \lfoDepth, 0)], [ArcParameter.new("Tempo Deviation", 1, 2, 100, 2, 1, ~tempoDeviationFunc, \nothing, -1), ArcParameter.new("dummy param", 1, 1, 1, 1, 1, ~nowhere, \nothing, 0)],
+						[ArcParameter.new("Lfo Three Speed", 0.0001, 50, 25, 2, lfoSpeed, ~lfoThree, \lfoSpeed, 0), ArcParameter.new("Lfo Three Depth", 0.0001, 1, 100, 2, lfoDepth, ~lfoThree, \lfoDepth, 0)], [ArcParameter.new("Tempo Deviation", 1, 2, 100, 2, 1, ~tempoDeviationFunc, \nothing, -1), ArcParameter.new("Pitch Offset", -0.1, 0.1, 1000, 2, 0, ~cvSynths, \pitchOffset, 0)],
 
-						[ArcParameter.new("CV-1 Amp Scale", 0, 1, 100, 2, ampScale1, ~cv1, \ampScale, 0), ArcParameter.new("CV-2 Amp Scale", 0, 1, 100, 2, ampScale2, ~cv2, \ampScale, 0)], [ArcParameter.new("Low Shelf Freq", 40, 500, 10, 2, lowShelfFreq, ~delay, \lowShelfFreq, 0), ArcParameter.new("Low Shelf Amplitude", 1, 4, 20, 2, lowShelfAmp, ~delay, \lowShelfAmp, 0)]
-
+						[ArcParameter.new("CV-1 Amp Scale", 0, 1, 100, 2, ampScale1, ~cv1, \ampScale, 0), ArcParameter.new("CV-2 Amp Scale", 0, 1, 100, 2, ampScale2, ~cv2, \ampScale, 0)]/*,
+						[ArcParameter.new("Low Shelf Freq", 40, 500, 10, 2, lowShelfFreq, ~delay, \lowShelfFreq, 0), ArcParameter.new("Low Shelf Amplitude", 1, 4, 20, 2, lowShelfAmp, ~delay, \lowShelfAmp, 0)]
+						*/
 					];
 				};
 				initSynths.value;
@@ -275,7 +277,7 @@ a = Environment.make{
 				~grid64.usePort(18279);
 
 				//osc functions for grid and arc
-				OSCFunc.newMatching( //main 128 grid
+				OSCdef(\cvSeqGrid128, //main 128 grid
 					{ arg message, time, addr, recvPort;
 						var semi = ~scale;
 						//var semi = [200, 180, 160, 140, 120, 100];
@@ -431,7 +433,7 @@ a = Environment.make{
 							});
 						});
 				}, "/monome/grid/key", NetAddr("127.0.0.1", 16139));
-				OSCFunc.newMatching( //64 grid
+				OSCdef(\cvSeqGrid64, //64 grid
 					{ arg message, time, addr, recvPort;
 						//postln(message[1] + "" + message[2] + "" + message[3]);
 						if(message[1] >= 4, { //arc selection columns
@@ -551,7 +553,7 @@ a = Environment.make{
 						);
 				}, "/monome/grid/key", NetAddr("127.0.0.1", 18279));
 
-				OSCFunc.newMatching( //arc
+				OSCdef(\cvSeqArc, //arc
 					{ arg message, time, addr, recvPort;
 						var arcFunctions = {arg name, messageOne, messageTwo, ledLevel = 15;
 							name.change(messageTwo);
@@ -573,8 +575,8 @@ a = Environment.make{
 				~updateArcLeds.value(1, ~pairs[~arcSelectionLeft[1]][1].arcLedValue);
 				~updateArcLeds.value(2, ~pairs[~arcSelectionRight[1]][0].arcLedValue);
 				~updateArcLeds.value(3, ~pairs[~arcSelectionRight[1]][1].arcLedValue);
-				~cvTask1.play(~clock);
-				~cvTask2.play(~clock);
+				~cvTask1.play(~clock1);
+				~cvTask2.play(~clock2);
 				//initialize loop row leds
 				for(0, (~numSeq - 1), {arg i;
 					for(0, 15, {arg x;
@@ -591,14 +593,32 @@ a = Environment.make{
 				//initialize grid 64 leds
 				for(0, 7, {arg x;
 					var def64leds = [0, 0, 0, 0, 15, 15, 7, 7];
-					~grid64Leds[x + (1 * 8)] = def64leds[x];
+					~grid64Leds[x + (0 * 8)] = def64leds[x]; //this is some hard coded bullshit
 					~grid64Leds[0 + (0 * 8)] = 15;
 				});
 				~updateGrid64Leds.value;
+				OSCdef(\cvSeqGrid128).enable;
+				OSCdef(\cvSeqGrid64).enable;
+				OSCdef(\cvSeqArc).enable;
 			}; //end ~initCvSeq
 			~stopCvSeq = {
-				~cvTask1.stop;
-				~cvTask2.stop;
+				s.makeBundle(nil, {
+					~cvTask1.stop;
+					~cvTask2.stop;
+					s.sync;
+					~cvSynths.free;
+					//~delay.free;
+					~lfoOne.free;
+					~lfoTwo.free;
+					~lfoThree.free;
+
+					~clock1.clear;
+					~clock2.clear;
+					OSCdef(\cvSeqGrid128).clear;
+					OSCdef(\cvSeqGrid64).clear;
+					OSCdef(\cvSeqArc).clear;
+					~grid64.levall(0);
+				});
 			};
 		}); //end wait for boot
 	)
@@ -607,6 +627,26 @@ a = Environment.make{
 a.push;
 ~initCvSeq.value;
 
+(//pause
+~cvTask1.reset;
+~cvTask2.reset;
+~clock1.clear;
+~clock2.clear;
+)
+
+(//resume
+s.makeBundle(nil, {
+	~clock1 = TempoClock.new(~tempo1 / 60);
+	~clock2 = TempoClock.new(~tempo2 / 60);
+	s.sync;
+~cvTask1.play(~clock1);
+~cvTask2.play(~clock2);
+});
+)
+
+s.queryAllNodes
 ~stopCvSeq.value
 a.pop
 a.clear
+currentEnvironment
+

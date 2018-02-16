@@ -11,6 +11,8 @@
 //TASKS RUN ON THE CLIENT SIDE YOU DIPSHIT!!!
 
 //get the arc parameter leds looking better!
+
+//need to update internal synth initialization
 s.options.memSize = 16384;
 
 s.boot;
@@ -292,11 +294,6 @@ s.queryAllNodes;
 			scale = [(0.1/12) * 11, (0.1/12) * 8.95, (0.1/12) * 7.1,
 				(0.1/12) * 3.95, (0.1/12) * 2, (0.1/12) * 0];
 			octaves = [0.3, 0.2, 0.1, 0, -0.1, -0.2];
-			//synth0 = Synth.basicNew("CVout", s, s.nextNodeID);
-			//synth1 = Synth.basicNew("CVout", s, s.nextNodeID);
-			//lfo0 = Synth.basicNew("ExtLFO", s, s.nextNodeID);
-			//lfo1 = Synth.basicNew("ExtLFO", s, s.nextNodeID);
-			//lfo2 = Synth.basicNew("ExtLFO", s, s.nextNodeID);
 		}, {
 			var root = 60.midicps;
 			noteData = Array.fill2D(numSeq, 16, root);
@@ -483,7 +480,7 @@ s.queryAllNodes;
 								});
 								updateGridLeds.value;
 								postln("you're not selecting your octave anymore");
-								octaveSelectionHeld[seqFoc][0] = 0;
+								octaveSelect		OSCdef(\cvSeqGrid128).enable;ionHeld[seqFoc][0] = 0;
 							}, 1, {
 							});
 						});
@@ -532,8 +529,6 @@ s.queryAllNodes;
 					arcFunctions.value(pairs[arcSelectionRight[1]][1], 3, message[2]);
 				});
 		}, "/monome/enc/delta");
-
-
 		OSCdef(\cvSeqGrid128).enable;
 		OSCdef(\cvSeqGrid64).enable;
 		OSCdef(\cvSeqArc).enable;
